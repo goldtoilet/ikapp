@@ -638,7 +638,11 @@ if inst_sets_main:
     # 1) 지침 set 선택 (가운데 컬럼 안, 왼쪽 정렬 제목)
     col_l1, col_c1, col_r1 = st.columns([1, 6, 1])
     with col_c1:
-        
+        st.markdown(
+            "<div style='font-size:1.05rem; font-weight:600; color:#4b5563; "
+            "margin-bottom:0.15rem; text-align:left;'>지침 set 선택</div>",
+            unsafe_allow_html=True,
+        )
         selected_index_main = st.radio(
             "지침 set 선택",
             options=list(range(len(inst_sets_main))),
