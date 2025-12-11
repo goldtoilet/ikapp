@@ -1,35 +1,18 @@
 import streamlit as st
 
-# 🔽 pages 폴더 안의 파일 import
-from pages import script_page, visual_page, memo_page, image_page, find_page, sub_page, bulk_page
+st.set_page_config(
+    page_title="ikapp",
+    page_icon="🧩",
+    layout="centered",
+)
 
-# 페이지 이름 - 페이지 모듈 매핑
-PAGES = {
-    "Script Page": script_page,
-    "Visual Page": visual_page,
-    "Memo Page": memo_page,
-    "Image Page": image_page,
-    "Find Page": find_page,
-    "Sub Page": sub_page,
-    "Bulk Page": bulk_page,
-}
+st.title("ikapp 홈")
+st.write("왼쪽 사이드바에서 실행할 도구(페이지)를 선택하세요.")
 
-def main():
-
-    st.set_page_config(page_title="ikapp", layout="wide")
-
-    # 메뉴 선택
-    st.sidebar.title("📂 Pages")
-    page_name = st.sidebar.radio("이동할 페이지 선택", list(PAGES.keys()))
-
-    # 선택된 페이지 렌더링
-    selected_page = PAGES[page_name]
-    
-    # 각 페이지 모듈 안에는 반드시 render() 함수가 있어야 함
-    if hasattr(selected_page, "render"):
-        selected_page.render()
-    else:
-        st.error(f"{page_name} 페이지에는 render() 함수가 없습니다!")
-
-if __name__ == "__main__":
-    main()
+st.markdown(
+    """
+- 📘 **script_page.py** → 대본 마스터 (scriptking)
+- 🎨 **visual_page.py** → 시각화 마스터 (visualking)
+- 🔍 **find_page.py** → YouTube 검색기
+"""
+)
