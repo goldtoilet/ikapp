@@ -12,6 +12,7 @@ client = OpenAI(api_key=api_key)
 
 CONFIG_PATH = "config.json"
 
+# textarea 기본 스타일
 st.markdown(
     """
     <style>
@@ -286,6 +287,7 @@ if not st.session_state.instruction_sets:
 else:
     ensure_active_set_applied()
 
+# ===== MemoKing 스타일 참고해서 전체 여백/간격 조정 =====
 st.markdown(
     """
     <style>
@@ -293,6 +295,16 @@ st.markdown(
         max-width: 900px;
         padding-top: 4.5rem;
     }
+    /* 전체 세로 간격을 조금 줄이기 */
+    .stVerticalBlock {
+        gap: 0.25rem !important;
+    }
+    /* hr 간격도 좀 더 촘촘하게 */
+    hr {
+        margin-top: 0.35rem !important;
+        margin-bottom: 0.35rem !important;
+    }
+
     [data-testid="stSidebar"] > div:first-child {
         display: flex;
         flex-direction: column;
@@ -306,6 +318,7 @@ st.markdown(
         padding-top: 16px;
     }
 
+    /* 메인 입력창 스타일 */
     div[data-testid="stTextInput"] input[aria-label="주제 입력"] {
         background-color: white !important;
         border: 1px solid #D1D5DB !important;
@@ -600,16 +613,19 @@ if active_set_main is None:
         "inst_user_intent": st.session_state.inst_user_intent,
     }
 
-# 상단 타이틀
+# 상단 타이틀 (MemoKing 느낌에 맞게 색 살짝 연하게)
 st.markdown(
     "<h2 style='margin-bottom:0.15rem; text-align:right; "
-    "color:#374151; font-size:22px;'>scriptking</h2>",
+    "color:#9ca3af; font-size:22px;'>scriptking</h2>",
     unsafe_allow_html=True,
 )
 st.markdown("---")
 
 # ============================
-# 지침 set 선택 & 관리 컨트롤 (가운데 정렬)
+# 지침 set 선택 & 관리 컨트롤
+#  - 제목 폰트 키우고
+#  - 왼쪽 정렬
+#  - 세로 간격 약간 줄임
 # ============================
 if inst_sets_main:
     names_main = [s.get("name", f"셋 {i+1}") for i, s in enumerate(inst_sets_main)]
@@ -619,12 +635,12 @@ if inst_sets_main:
             active_index_main = i
             break
 
-    # 1) 지침 set 선택 (가운데)
-    col_l1, col_c1, col_r1 = st.columns([1, 4, 1])
+    # 1) 지침 set 선택 (가운데 컬럼 안, 왼쪽 정렬 제목)
+    col_l1, col_c1, col_r1 = st.columns([1, 6, 1])
     with col_c1:
         st.markdown(
-            "<div style='font-size:0.85rem; color:#6b7280; "
-            "margin-bottom:0.2rem; text-align:center;'>지침 set 선택</div>",
+            "<div style='font-size:1.05rem; font-weight:600; color:#4b5563; "
+            "margin-bottom:0.15rem; text-align:left;'>지침 set 선택</div>",
             unsafe_allow_html=True,
         )
         selected_index_main = st.radio(
@@ -643,12 +659,12 @@ if inst_sets_main:
             save_config()
             st.rerun()
 
-    # 2) 지침 set 관리 (아래, 가운데)
-    col_l2, col_c2, col_r2 = st.columns([1, 4, 1])
+    # 2) 지침 set 관리 (아래, 왼쪽 정렬 / 간격 조금만)
+    col_l2, col_c2, col_r2 = st.columns([1, 6, 1])
     with col_c2:
         st.markdown(
-            "<div style='font-size:0.85rem; color:#6b7280; "
-            "margin-top:0.6rem; margin-bottom:0.2rem; text-align:center;'>지침 set 관리</div>",
+            "<div style='font-size:1.05rem; font-weight:600; color:#4b5563; "
+            "margin-top:0.4rem; margin-bottom:0.15rem; text-align:left;'>지침 set 관리</div>",
             unsafe_allow_html=True,
         )
         toolbar_key = f"instset_toolbar_main_{st.session_state['instset_toolbar_run_id']}"
@@ -678,9 +694,9 @@ if inst_sets_main:
 # 컨트롤 아래 separator bar
 st.markdown("---")
 
-# 현재 선택된 지침 set 이름 (더 크게, 가운데 정렬 / 아래 separator 없음)
+# 현재 선택된 지침 set 이름 (조금 여백만 유지)
 st.markdown(
-    f"<h2 style='text-align:center; margin:0.8rem 0 1.5rem 0; "
+    f"<h2 style='text-align:center; margin:0.6rem 0 1.2rem 0; "
     f"font-size:26px; color:#111827;'>{active_name_main}</h2>",
     unsafe_allow_html=True,
 )
@@ -825,10 +841,6 @@ if st.session_state.get("show_instruction_set_editor", False):
                 st.rerun()
 
 # ============================
-# 지침 set 미리보기 블록은 완전히 제거됨
-# ============================
-
-# ============================
 # 최근 히스토리 및 입력
 # ============================
 if st.session_state.history:
@@ -889,7 +901,7 @@ with center_col:
 st.markdown("<div style='height:32px;'></div>", unsafe_allow_html=True)
 
 # ============================
-# 생성 결과: 가운데 정렬 제목 + 넓은 스크롤 texteditor
+# 생성 결과
 # ============================
 if st.session_state.last_output:
     st.markdown(
