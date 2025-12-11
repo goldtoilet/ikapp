@@ -1,7 +1,12 @@
 import streamlit as st
 import sqlite3
 from streamlit_option_menu import option_menu
+import streamlit as st
 
+def require_login():
+    if not st.session_state.get("logged_in", False):
+        st.warning("로그인이 필요합니다.")
+        st.stop()
 st.set_page_config(page_title="MemoKing", layout="wide")
 
 
