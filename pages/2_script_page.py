@@ -621,6 +621,12 @@ st.markdown(
 )
 st.markdown("---")
 
+# ⬇️ separator 아래쪽 여백(위쪽과 비슷하게 맞춤)
+st.markdown(
+    "<div style='margin-top:0.4rem;'></div>",
+    unsafe_allow_html=True,
+)
+
 # ============================
 # 지침 set 선택 & 관리 컨트롤
 #  - 제목 폰트 키우고
@@ -898,7 +904,10 @@ with center_col:
         on_change=run_generation,
     )
 
-st.markdown("<div style='height:32px;'></div>", unsafe_allow_html=True)
+# ⬇️ 키워드 입력창 아래 separator + 여백
+st.markdown("<div style='margin-top:0.6rem;'></div>", unsafe_allow_html=True)
+st.markdown("---")
+st.markdown("<div style='margin-top:0.6rem;'></div>", unsafe_allow_html=True)
 
 # ============================
 # 생성 결과
