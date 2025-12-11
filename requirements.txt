@@ -1,0 +1,26 @@
+# Streamlit
+streamlit>=1.39.0
+streamlit-option-menu==0.3.12
+
+# OpenAI
+openai>=1.54.0
+python-dotenv
+
+# 데이터/유틸
+pandas
+requests
+python-dateutil
+numpy
+
+# Google API
+google-api-python-client
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
+
+# 이미지 / 영상 처리
+Pillow
+imageio
+imageio-ffmpeg>=0.4.9
+moviepy==1.0.3
+pydub
