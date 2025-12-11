@@ -1,25 +1,35 @@
-# app.py
-
-import os
-import json
 import streamlit as st
 
-from pages import scriptking_page, visualking_page, memoking_page  # 나중에 계속 추가
+# 🔽 pages 폴더 안의 파일 import
+from pages import script_page, visual_page, memo_page, image_page, find_page, sub_page, bulk_page
 
-CONFIG_PATH = "config.json"
+# 페이지 이름 - 페이지 모듈 매핑
+PAGES = {
+    "Script Page": script_page,
+    "Visual Page": visual_page,
+    "Memo Page": memo_page,
+    "Image Page": image_page,
+    "Find Page": find_page,
+    "Sub Page": sub_page,
+    "Bulk Page": bulk_page,
+}
 
-# ---------------------------
-# config.json load / save
-# ---------------------------
-def load_config():
-    if not os.path.exists(CONFIG_PATH):
-        return {}
-    try:
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+def main():
 
-def save_config(data: dict):
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    st.set_page_config(page_title="ikapp", layout="wide")
+
+    # 메뉴 선택
+    st.sidebar.title("📂 Pages")
+    page_name = st.sidebar.radio("이동할 페이지 선택", list(PAGES.keys()))
+
+    # 선택된 페이지 렌더링
+    selected_page = PAGES[page_name]
+    
+    # 각 페이지 모듈 안에는 반드시 render() 함수가 있어야 함
+    if hasattr(selected_page, "render"):
+        selected_page.render()
+    else:
+        st.error(f"{page_name} 페이지에는 render() 함수가 없습니다!")
+
+if __name__ == "__main__":
+    main()
