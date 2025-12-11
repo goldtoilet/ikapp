@@ -256,7 +256,7 @@ def run_generation():
     if not text:
         return
 
-    # 히스토리는 그대로 유지 (원하면 나중에 text 일부만 저장하도록 변경 가능)
+    # 히스토리는 그대로 유지
     hist = st.session_state.history
     if text in hist:
         hist.remove(text)
@@ -272,7 +272,7 @@ def run_generation():
         st.session_state.inst_forbidden,
         st.session_state.inst_format,
         st.session_state.inst_user_intent,
-        # visualking 특성상, 공통 이미지 지침도 system에 포함해도 됨
+        # visualking 특성상, 공통 이미지 지침도 system에 포함
         st.session_state.common_image_instruction,
     ]
     system_text = "\n\n".join(
@@ -355,13 +355,22 @@ if not st.session_state.image_instruction_sets:
 else:
     ensure_active_image_set_applied()
 
-# ===== 공통 스타일 =====
+# ===== 공통 스타일 (세로 간격 줄이기) =====
 st.markdown(
     """
     <style>
     .block-container {
         max-width: 900px;
         padding-top: 4.5rem;
+    }
+    /* 전체 세로 블록 간격 줄이기 */
+    .stVerticalBlock {
+        gap: 0.25rem !important;
+    }
+    /* hr 위아래 간격 줄이기 */
+    hr {
+        margin-top: 0.35rem !important;
+        margin-bottom: 0.35rem !important;
     }
     [data-testid="stSidebar"] > div:first-child {
         display: flex;
@@ -383,9 +392,6 @@ st.markdown(
 # ================== 사이드바 ==================
 with st.sidebar:
     st.markdown("<div class='sidebar-top'>", unsafe_allow_html=True)
-
-    # (요청) 상단의 "지침 set" 블록과 버튼, separator는 제거
-    # 바로 아래의 📘 지침부터 유지
 
     st.markdown("### 📘 지침")
 
@@ -837,7 +843,7 @@ if inst_sets_main:
             st.session_state.instset_toolbar_run_id += 1
             st.rerun()
 
-# (요청) 지침 set 영역 아래 separator bar
+# 지침 set 영역 아래 separator bar
 st.markdown("---")
 
 # 현재 선택된 지침 set 이름 (가운데 정렬) + 그 아래 separator
@@ -1065,7 +1071,7 @@ if st.session_state.get("show_image_instruction_set_editor", False):
                 st.success("✅ 공통 이미지 지침 set이 저장되었습니다.")
                 st.rerun()
 
-# ----- 최근 입력 -----
+# ----- 최근 입력 (세로 여백 약간 축소) -----
 if st.session_state.history:
     items = st.session_state.history[-5:]
     html_items = ""
@@ -1080,10 +1086,10 @@ if st.session_state.history:
     st.markdown(
         f"""<div style="
     max-width:460px;
-    margin:40px auto 40px auto;
+    margin:28px auto 28px auto;
 ">
   <div style="margin-left:100px; text-align:left;">
-    <div style="font-size:0.8rem; color:#9ca3af; margin-bottom:10px;">
+    <div style="font-size:0.8rem; color:#9ca3af; margin-bottom:8px;">
       최근
     </div>
     {html_items}
@@ -1095,7 +1101,7 @@ else:
     st.markdown(
         """<div style="
     max-width:460px;
-    margin:40px auto 40px auto;
+    margin:28px auto 28px auto;
 ">
   <div style="margin-left:100px; font-size:0.8rem; color:#d1d5db; text-align:left;">
     최근 입력이 없습니다.
@@ -1114,7 +1120,6 @@ with center_col:
         unsafe_allow_html=True,
     )
 
-    # 위젯이 session_state["current_input"]를 자동으로 관리하게 둡니다.
     _ = st.text_area(
         label="주제 입력",
         key="current_input",
@@ -1124,16 +1129,15 @@ with center_col:
     )
 
     if st.button("지침 수행", use_container_width=True):
-        # run_generation() 안에서 st.session_state.current_input 을 그대로 사용
         run_generation()
 
-
-st.markdown("<div style='height:24px;'></div>", unsafe_allow_html=True)
+# 메인 입력 아래 여백 살짝만
+st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
 
 # ===== 결과 영역: 제목 가운데 정렬 + 넓은 texteditor =====
 if st.session_state.last_output:
     st.markdown(
-        "<h3 style='text-align:center; margin-bottom:0.75rem;'>📄 변환된 결과</h3>",
+        "<h3 style='text-align:center; margin-bottom:0.6rem;'>📄 변환된 결과</h3>",
         unsafe_allow_html=True,
     )
     output_text = st.text_area(
@@ -1143,5 +1147,4 @@ if st.session_state.last_output:
         key="output_editor",
         label_visibility="collapsed",
     )
-    # 에디터에서 수정한 내용 유지
     st.session_state.last_output = output_text
