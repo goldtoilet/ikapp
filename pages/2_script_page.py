@@ -10,7 +10,8 @@ st.set_page_config(page_title="scriptking", page_icon="📝", layout="centered")
 api_key = os.getenv("GPT_API_KEY")
 client = OpenAI(api_key=api_key)
 
-CONFIG_PATH = "config.json"
+# ✅ script 페이지 전용 config 파일
+CONFIG_PATH = "script_config.json"
 
 # textarea 기본 스타일
 st.markdown(
@@ -70,6 +71,9 @@ st.session_state.setdefault("instset_delete_mode", False)
 st.session_state.setdefault("show_reset_confirm", False)
 st.session_state.setdefault("reset_input_value", "")
 
+# ✅ 멀티페이지 공통 “현재 선택 항목” (요청한 current_page_id)
+st.session_state.setdefault("current_page_id", None)
+
 
 def load_config():
     if not os.path.exists(CONFIG_PATH):
@@ -105,6 +109,10 @@ def load_config():
     if "active_instruction_set_id" in data:
         st.session_state.active_instruction_set_id = data["active_instruction_set_id"]
 
+    # ✅ current_page_id 복원
+    if "current_page_id" in data:
+        st.session_state.current_page_id = data.get("current_page_id")
+
 
 def save_config():
     data = {
@@ -118,6 +126,8 @@ def save_config():
         "history": st.session_state.history[-5:],
         "instruction_sets": st.session_state.get("instruction_sets", []),
         "active_instruction_set_id": st.session_state.get("active_instruction_set_id"),
+        # ✅ current_page_id 저장
+        "current_page_id": st.session_state.get("current_page_id"),
     }
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -147,6 +157,8 @@ def reset_config():
         "instset_delete_mode",
         "show_reset_confirm",
         "reset_input_value",
+        # ✅ 추가
+        "current_page_id",
     ]:
         if key in st.session_state:
             del st.session_state[key]
@@ -283,6 +295,9 @@ if not st.session_state.instruction_sets:
     }
     st.session_state.instruction_sets = [default_set]
     st.session_state.active_instruction_set_id = "default"
+
+    # ✅ 초기 current_page_id도 맞춰 저장
+    st.session_state.current_page_id = "default"
     save_config()
 else:
     ensure_active_set_applied()
@@ -295,11 +310,9 @@ st.markdown(
         max-width: 900px;
         padding-top: 4.5rem;
     }
-    /* 전체 세로 간격을 조금 줄이기 */
     .stVerticalBlock {
         gap: 0.25rem !important;
     }
-    /* hr 간격도 좀 더 촘촘하게 */
     hr {
         margin-top: 0.35rem !important;
         margin-bottom: 0.35rem !important;
@@ -318,7 +331,6 @@ st.markdown(
         padding-top: 16px;
     }
 
-    /* 메인 입력창 스타일 */
     div[data-testid="stTextInput"] input[aria-label="주제 입력"] {
         background-color: white !important;
         border: 1px solid #D1D5DB !important;
@@ -493,15 +505,16 @@ with st.sidebar:
         )
         st.session_state.model_choice = model
 
-    with st.expander("🧹 설정 초기화 (config.json)", expanded=False):
-        st.caption("모든 지침, 최근 입력, config.json 파일을 초기화합니다. 되돌릴 수 없습니다.")
+    # ✅ script_config.json 초기화
+    with st.expander("🧹 설정 초기화 (script_config.json)", expanded=False):
+        st.caption("모든 지침, 최근 입력, script_config.json 파일을 초기화합니다. 되돌릴 수 없습니다.")
         if not st.session_state.show_reset_confirm:
-            if st.button("config.json 초기화", use_container_width=True):
+            if st.button("script_config.json 초기화", use_container_width=True):
                 st.session_state.show_reset_confirm = True
                 st.session_state.reset_input_value = ""
                 st.rerun()
         else:
-            st.warning("정말 config.json을 초기화하시겠습니까? 아래에 '초기화'를 입력한 뒤 실행을 눌러주세요.")
+            st.warning("정말 script_config.json을 초기화하시겠습니까? 아래에 '초기화'를 입력한 뒤 실행을 눌러주세요.")
             txt = st.text_input(
                 "확인용 단어 입력",
                 key="reset_confirm_input",
@@ -521,8 +534,9 @@ with st.sidebar:
                     st.session_state.reset_input_value = ""
                     st.rerun()
 
-    with st.expander("💾 config.json 내보내기 / 불러오기", expanded=False):
-        st.caption("현재 설정을 파일로 저장하거나, 기존 config.json 파일을 불러올 수 있습니다.")
+    # ✅ script_config.json 내보내기/불러오기
+    with st.expander("💾 script_config.json 내보내기 / 불러오기", expanded=False):
+        st.caption("현재 설정을 파일로 저장하거나, 기존 script_config.json 파일을 불러올 수 있습니다.")
 
         export_data = {
             "inst_role": st.session_state.inst_role,
@@ -535,12 +549,14 @@ with st.sidebar:
             "history": st.session_state.history[-5:],
             "instruction_sets": st.session_state.get("instruction_sets", []),
             "active_instruction_set_id": st.session_state.get("active_instruction_set_id"),
+            # ✅ current_page_id 포함
+            "current_page_id": st.session_state.get("current_page_id"),
         }
         export_json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
         st.download_button(
-            "⬇️ config.json 내보내기",
+            "⬇️ script_config.json 내보내기",
             data=export_json_str.encode("utf-8"),
-            file_name="config.json",
+            file_name="script_config.json",
             mime="application/json",
             use_container_width=True,
         )
@@ -548,7 +564,7 @@ with st.sidebar:
         st.markdown("---")
 
         uploaded_file = st.file_uploader(
-            "config.json 불러오기", type=["json"], help="이전 백업한 config.json 파일을 업로드하세요."
+            "script_config.json 불러오기", type=["json"], help="이전 백업한 script_config.json 파일을 업로드하세요."
         )
 
         if uploaded_file is not None:
@@ -556,7 +572,7 @@ with st.sidebar:
                 raw = uploaded_file.read().decode("utf-8")
                 new_data = json.loads(raw)
             except Exception:
-                st.error("❌ JSON 파일을 읽는 중 오류가 발생했습니다. 올바른 config.json인지 확인해주세요.")
+                st.error("❌ JSON 파일을 읽는 중 오류가 발생했습니다. 올바른 script_config.json인지 확인해주세요.")
             else:
                 with open(CONFIG_PATH, "w", encoding="utf-8") as f:
                     f.write(raw)
@@ -580,9 +596,10 @@ with st.sidebar:
                     }
                     st.session_state.instruction_sets = [default_set]
                     st.session_state.active_instruction_set_id = "default"
+                    st.session_state.current_page_id = "default"
                     save_config()
 
-                st.success("✅ config.json이 성공적으로 불러와졌습니다. 설정이 적용됩니다.")
+                st.success("✅ script_config.json이 성공적으로 불러와졌습니다. 설정이 적용됩니다.")
                 st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -613,25 +630,17 @@ if active_set_main is None:
         "inst_user_intent": st.session_state.inst_user_intent,
     }
 
-# 상단 타이틀 (MemoKing 느낌에 맞게 색 살짝 연하게)
+# 상단 타이틀
 st.markdown(
     "<h2 style='margin-bottom:0.15rem; text-align:right; "
     "color:#9ca3af; font-size:22px;'>scriptking</h2>",
     unsafe_allow_html=True,
 )
 st.markdown("---")
-
-# ⬇️ separator 아래쪽 여백(위쪽과 비슷하게 맞춤)
-st.markdown(
-    "<div style='margin-top:0.4rem;'></div>",
-    unsafe_allow_html=True,
-)
+st.markdown("<div style='margin-top:0.4rem;'></div>", unsafe_allow_html=True)
 
 # ============================
-# 지침 set 선택 & 관리 컨트롤
-#  - 제목 폰트 키우고
-#  - 왼쪽 정렬
-#  - 세로 간격 약간 줄임
+# 지침 set 선택 & 관리
 # ============================
 if inst_sets_main:
     names_main = [s.get("name", f"셋 {i+1}") for i, s in enumerate(inst_sets_main)]
@@ -641,7 +650,6 @@ if inst_sets_main:
             active_index_main = i
             break
 
-    # 1) 지침 set 선택 (가운데 컬럼 안, 왼쪽 정렬 제목)
     col_l1, col_c1, col_r1 = st.columns([1, 6, 1])
     with col_c1:
         st.markdown(
@@ -661,11 +669,13 @@ if inst_sets_main:
         selected_set = inst_sets_main[selected_index_main]
         if selected_set.get("id") != active_id_main:
             st.session_state.active_instruction_set_id = selected_set.get("id")
+
+            # ✅ current_page_id도 같이 갱신/저장 (요청 반영)
+            st.session_state.current_page_id = selected_set.get("id")
             apply_instruction_set(selected_set)
             save_config()
             st.rerun()
 
-    # 2) 지침 set 관리 (아래, 왼쪽 정렬 / 간격 조금만)
     col_l2, col_c2, col_r2 = st.columns([1, 6, 1])
     with col_c2:
         st.markdown(
@@ -697,17 +707,17 @@ if inst_sets_main:
             st.session_state.instset_toolbar_run_id += 1
             st.rerun()
 
-# 컨트롤 아래 separator bar
 st.markdown("---")
 
-# 현재 선택된 지침 set 이름 (조금 여백만 유지)
 st.markdown(
     f"<h2 style='text-align:center; margin:0.6rem 0 1.2rem 0; "
     f"font-size:26px; color:#111827;'>{active_name_main}</h2>",
     unsafe_allow_html=True,
 )
 
-# 지침 set 삭제 모드 (메인 영역에 표시)
+# ============================
+# 지침 set 삭제 모드
+# ============================
 if st.session_state.get("instset_delete_mode", False):
     sets = st.session_state.instruction_sets
     st.markdown("#### 🗑 지침 set 삭제")
@@ -736,9 +746,11 @@ if st.session_state.get("instset_delete_mode", False):
                         st.session_state.active_instruction_set_id = (
                             st.session_state.instruction_sets[0].get("id")
                         )
+                        st.session_state.current_page_id = st.session_state.active_instruction_set_id
                         ensure_active_set_applied()
                     else:
                         st.session_state.active_instruction_set_id = None
+                        st.session_state.current_page_id = None
                 save_config()
                 st.session_state.instset_delete_mode = False
                 st.rerun()
@@ -747,7 +759,9 @@ if st.session_state.get("instset_delete_mode", False):
                 st.session_state.instset_delete_mode = False
                 st.rerun()
 
+# ============================
 # 지침 set 추가/편집 에디터
+# ============================
 if st.session_state.get("show_instruction_set_editor", False):
     edit_id = st.session_state.get("edit_instruction_set_id")
     edit_mode = bool(edit_id)
@@ -823,6 +837,7 @@ if st.session_state.get("show_instruction_set_editor", False):
                             st.session_state.instruction_sets[i] = target_set
                             break
                     st.session_state.active_instruction_set_id = edit_id
+                    st.session_state.current_page_id = edit_id
                 else:
                     new_id = str(uuid4())
                     new_set = {
@@ -838,6 +853,7 @@ if st.session_state.get("show_instruction_set_editor", False):
                     }
                     st.session_state.instruction_sets.append(new_set)
                     st.session_state.active_instruction_set_id = new_id
+                    st.session_state.current_page_id = new_id
 
                 ensure_active_set_applied()
                 st.session_state.show_instruction_set_editor = False
@@ -904,7 +920,6 @@ with center_col:
         on_change=run_generation,
     )
 
-# ⬇️ 키워드 입력창 아래 separator + 여백
 st.markdown("<div style='margin-top:0.6rem;'></div>", unsafe_allow_html=True)
 st.markdown("---")
 st.markdown("<div style='margin-top:0.6rem;'></div>", unsafe_allow_html=True)
