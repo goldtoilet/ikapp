@@ -1,15 +1,52 @@
 import streamlit as st
 import sqlite3
 from streamlit_option_menu import option_menu
-import streamlit as st
 
+# ✅ 추가 import (config 저장/불러오기용)
+import os
+import json
+
+# =========================
+# (선택) 로그인 체크
+# =========================
 def require_login():
     if not st.session_state.get("logged_in", False):
         st.warning("로그인이 필요합니다.")
         st.stop()
+
 st.set_page_config(page_title="MemoKing", layout="wide")
 
+# =========================
+# ✅ 이 페이지 전용 config 파일명
+# =========================
+CONFIG_PATH = "memo_config.json"
 
+def load_config() -> dict:
+    if not os.path.exists(CONFIG_PATH):
+        return {}
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_config(cfg: dict) -> None:
+    try:
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+def reset_config_file():
+    if os.path.exists(CONFIG_PATH):
+        try:
+            os.remove(CONFIG_PATH)
+        except Exception:
+            pass
+
+# =========================
+# DB
+# =========================
 def init_db():
     conn = sqlite3.connect("memo.db")
     cur = conn.cursor()
@@ -38,15 +75,12 @@ def init_db():
     conn.commit()
     return conn
 
-
 db = init_db()
-
 
 def get_pages():
     cur = db.cursor()
     cur.execute("SELECT id, title FROM pages ORDER BY id ASC")
     return cur.fetchall()
-
 
 def add_page(title="새 페이지"):
     cur = db.cursor()
@@ -54,19 +88,16 @@ def add_page(title="새 페이지"):
     db.commit()
     return cur.lastrowid
 
-
 def delete_page(page_id: int):
     cur = db.cursor()
     cur.execute("DELETE FROM cards WHERE page_id=?", (page_id,))
     cur.execute("DELETE FROM pages WHERE id=?", (page_id,))
     db.commit()
 
-
 def rename_page(page_id: int, new_title: str):
     cur = db.cursor()
     cur.execute("UPDATE pages SET title=? WHERE id=?", (new_title, page_id))
     db.commit()
-
 
 def get_cards(page_id: int):
     cur = db.cursor()
@@ -76,7 +107,6 @@ def get_cards(page_id: int):
     )
     return cur.fetchall()
 
-
 def add_card(page_id: int):
     cur = db.cursor()
     cur.execute(
@@ -85,7 +115,6 @@ def add_card(page_id: int):
     )
     db.commit()
 
-
 def update_card(card_id: int, title: str, content: str):
     cur = db.cursor()
     cur.execute(
@@ -93,7 +122,6 @@ def update_card(card_id: int, title: str, content: str):
         (title, content, card_id),
     )
     db.commit()
-
 
 def delete_card_by_title(page_id: int, title: str):
     cur = db.cursor()
@@ -109,7 +137,9 @@ def delete_card_by_title(page_id: int, title: str):
         return True
     return False
 
-
+# =========================
+# CSS
+# =========================
 st.markdown(
     """
 <style>
@@ -159,7 +189,7 @@ details {
     background-color: #f9fafb !important;
     border: 1px solid #e5e7eb !important;
     padding: 0.1rem 0.55rem 0.4rem 0.55rem !important;
-    margin-bottom: 0.25rem !important;  /* 카드 간 간격 유지 */
+    margin-bottom: 0.25rem !important;
     box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
 }
 
@@ -168,16 +198,14 @@ details[open] {
     box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
 }
 
-/* disclosure 닫혔을 때도 높이를 조금 더 느끼도록 summary 패딩/폰트 조정 */
 details > summary {
     font-weight: 600 !important;
     color: #374151 !important;
-    font-size: 1.18rem !important;      /* 제목 더 큼 (대략 18~19px) */
-    padding: 0.4rem 0 0.25rem 0 !important;  /* 세로 패딩 ↑ → 닫힌 높이 증가 */
+    font-size: 1.18rem !important;
+    padding: 0.4rem 0 0.25rem 0 !important;
     line-height: 1.2 !important;
 }
 
-/* hr */
 hr {
     margin-top: 0.35rem !important;
     margin-bottom: 0.35rem !important;
@@ -196,6 +224,9 @@ div[role="radiogroup"] label {
     unsafe_allow_html=True,
 )
 
+# =========================
+# session_state defaults
+# =========================
 if "page_toolbar_last" not in st.session_state:
     st.session_state["page_toolbar_last"] = "-"
 if "renaming_page" not in st.session_state:
@@ -213,6 +244,17 @@ if st.session_state.get("reset_page_toolbar", False):
     st.session_state["page_toolbar"] = "-"
     st.session_state["reset_page_toolbar"] = False
 
+# =========================
+# ✅ config 로드 → current_page_id 복원
+# =========================
+_cfg = load_config()
+if "current_page_id" not in st.session_state and isinstance(_cfg, dict):
+    if _cfg.get("current_page_id") is not None:
+        st.session_state["current_page_id"] = _cfg["current_page_id"]
+
+# =========================
+# Sidebar
+# =========================
 with st.sidebar:
     pages = get_pages()
     if not pages:
@@ -253,6 +295,13 @@ with st.sidebar:
 
     current_page_id = page_ids[page_titles.index(choice)]
     st.session_state["current_page_id"] = current_page_id
+
+    # ✅ 선택 페이지 저장 (memo_config.json)
+    _cfg = load_config()
+    if not isinstance(_cfg, dict):
+        _cfg = {}
+    _cfg["current_page_id"] = current_page_id
+    save_config(_cfg)
 
     st.markdown("---")
 
@@ -329,6 +378,48 @@ with st.sidebar:
                 st.session_state["reset_page_toolbar"] = True
                 st.rerun()
 
+    # =========================
+    # ✅ 여기부터: memo_config.json 전용 설정 버튼들
+    # =========================
+    st.markdown("---")
+    with st.expander("⚙️ 설정 (memo_config.json)", expanded=False):
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("초기화", use_container_width=True):
+                reset_config_file()
+                # session_state의 config 관련 값도 정리(필요한 것만)
+                if "current_page_id" in st.session_state:
+                    del st.session_state["current_page_id"]
+                st.success("memo_config.json 초기화 완료")
+                st.rerun()
+
+        with c2:
+            cfg_now = load_config()
+            cfg_bytes = json.dumps(cfg_now, ensure_ascii=False, indent=2).encode("utf-8")
+            st.download_button(
+                "내보내기",
+                data=cfg_bytes,
+                file_name="memo_config.json",
+                mime="application/json",
+                use_container_width=True,
+            )
+
+        up = st.file_uploader("불러오기 (json)", type=["json"])
+        if up is not None:
+            try:
+                new_cfg = json.loads(up.read().decode("utf-8"))
+                if not isinstance(new_cfg, dict):
+                    st.error("JSON 최상위는 객체(dict)여야 합니다.")
+                else:
+                    save_config(new_cfg)
+                    st.success("불러오기 완료 (memo_config.json에 적용)")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"불러오기 실패: {e}")
+
+# =========================
+# Main
+# =========================
 st.markdown('<div class="mk-main-wrapper">', unsafe_allow_html=True)
 
 st.markdown(
