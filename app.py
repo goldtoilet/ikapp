@@ -25,8 +25,30 @@ def load_auth_state():
 
 
 def save_auth_state(state):
-    with open(AUTH_STATE_PATH, "w", encoding="utf-8") as f:
-        json.dump(state, f, ensure_ascii=False)
+    try:
+        with open(AUTH_STATE_PATH, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False)
+    except Exception:
+        # Streamlit Cloud 등에서 쓰기 제한이 있을 수 있음
+        pass
+
+
+# =========================
+# (A안 핵심) 로그인 전: 사이드바 네비(페이지 목록)만 숨김
+# =========================
+def hide_sidebar_nav_only():
+    st.markdown(
+        """
+        <style>
+          /* 왼쪽 "페이지 네비게이션 목록"만 숨김 */
+          [data-testid="stSidebarNav"] { display: none !important; }
+
+          /* 사이드바 자체는 남아있을 수 있는데, 내용 없으면 여백처럼 보여서 padding만 조금 줄임 */
+          [data-testid="stSidebar"] { padding-top: 0.5rem !important; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 # =========================
@@ -35,9 +57,9 @@ def save_auth_state(state):
 def login_view():
     st.markdown("## 🔐 ikapp 로그인")
 
-    user_id = st.text_input("아이디")
-    password = st.text_input("비밀번호", type="password")
-    remember = st.checkbox("자동 로그인")
+    user_id = st.text_input("아이디", key="login_id")
+    password = st.text_input("비밀번호", type="password", key="login_pw")
+    remember = st.checkbox("자동 로그인", key="remember_login")
 
     if st.button("로그인", use_container_width=True):
         if user_id == AUTH_ID and password == AUTH_PW:
@@ -59,9 +81,9 @@ def password_change_view():
     st.info(
         "보안을 위해 비밀번호는 앱 내부에서 직접 변경하지 않습니다.\n\n"
         "📌 변경 방법:\n"
-        "1. `.streamlit/secrets.toml` 파일 열기\n"
-        "2. `[auth] password` 값 수정\n"
-        "3. 앱 재시작"
+        "1. Streamlit Cloud → App settings → Secrets\n"
+        "2. [auth] password 값을 수정\n"
+        "3. 앱 재실행(또는 자동 재시작)"
     )
 
 
@@ -106,7 +128,7 @@ st.set_page_config(
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-# 자동 로그인
+# 자동 로그인 (가능한 환경에서만 동작)
 auth_state = load_auth_state()
 if auth_state.get("remember") and not st.session_state.logged_in:
     st.session_state.logged_in = True
@@ -115,10 +137,12 @@ if auth_state.get("remember") and not st.session_state.logged_in:
 # 렌더링
 # =========================
 if not st.session_state.logged_in:
+    # (A안) 로그인 전에는 "페이지 네비"만 숨김
+    hide_sidebar_nav_only()
     login_view()
 else:
+    # 로그인 후에는 CSS를 적용하지 않으므로 기본 네비가 다시 보임
     header_bar()
     st.markdown("---")
     main_home()
     password_change_view()
-
