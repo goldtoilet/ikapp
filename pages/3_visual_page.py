@@ -10,7 +10,8 @@ st.set_page_config(page_title="visualking", page_icon="📝", layout="centered")
 api_key = os.getenv("GPT_API_KEY")
 client = OpenAI(api_key=api_key)
 
-CONFIG_PATH = "config.json"
+# ✅ visual 페이지 전용 config 파일
+CONFIG_PATH = "visual_config.json"
 
 st.markdown(
     """
@@ -58,6 +59,9 @@ st.session_state.setdefault(
 st.session_state.setdefault("current_input", "")
 st.session_state.setdefault("last_output", "")
 st.session_state.setdefault("model_choice", "gpt-4o-mini")
+
+# ✅ 멀티페이지 공통 “현재 선택 항목”
+st.session_state.setdefault("current_page_id", None)
 
 # ===== 텍스트 지침 set 관련 상태 =====
 st.session_state.setdefault("instruction_sets", [])
@@ -125,6 +129,10 @@ def load_config():
     if isinstance(data.get("common_image_instruction"), str):
         st.session_state.common_image_instruction = data["common_image_instruction"]
 
+    # ✅ current_page_id 복원
+    if "current_page_id" in data:
+        st.session_state.current_page_id = data.get("current_page_id")
+
 
 def save_config():
     data = {
@@ -141,6 +149,8 @@ def save_config():
         "image_instruction_sets": st.session_state.get("image_instruction_sets", []),
         "active_image_instruction_set_id": st.session_state.get("active_image_instruction_set_id"),
         "common_image_instruction": st.session_state.get("common_image_instruction", ""),
+        # ✅ current_page_id 저장
+        "current_page_id": st.session_state.get("current_page_id"),
     }
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -162,6 +172,7 @@ def reset_config():
         "current_input",
         "last_output",
         "model_choice",
+        "current_page_id",  # ✅ 추가
         "instruction_sets",
         "active_instruction_set_id",
         "show_instruction_set_editor",
@@ -203,7 +214,6 @@ def apply_instruction_set(set_obj: dict):
 
 
 def apply_image_instruction_set(set_obj: dict):
-    # 공통 이미지 지침 내용만 반영
     st.session_state.common_image_instruction = set_obj.get("content", "")
     save_config()
 
@@ -256,7 +266,6 @@ def run_generation():
     if not text:
         return
 
-    # 히스토리는 그대로 유지
     hist = st.session_state.history
     if text in hist:
         hist.remove(text)
@@ -272,7 +281,6 @@ def run_generation():
         st.session_state.inst_forbidden,
         st.session_state.inst_format,
         st.session_state.inst_user_intent,
-        # visualking 특성상, 공통 이미지 지침도 system에 포함
         st.session_state.common_image_instruction,
     ]
     system_text = "\n\n".join(
@@ -338,9 +346,16 @@ if not st.session_state.instruction_sets:
     }
     st.session_state.instruction_sets = [default_set]
     st.session_state.active_instruction_set_id = "default"
+
+    # ✅ current_page_id도 초기값 맞춰 저장
+    st.session_state.current_page_id = "default"
     save_config()
 else:
     ensure_active_set_applied()
+    # ✅ 혹시 config에 current_page_id가 없었다면 보정
+    if st.session_state.get("current_page_id") is None and st.session_state.get("active_instruction_set_id"):
+        st.session_state.current_page_id = st.session_state.active_instruction_set_id
+        save_config()
 
 # 이미지 지침 set 기본값
 if not st.session_state.image_instruction_sets:
@@ -363,11 +378,9 @@ st.markdown(
         max-width: 900px;
         padding-top: 4.5rem;
     }
-    /* 전체 세로 블록 간격 줄이기 */
     .stVerticalBlock {
         gap: 0.25rem !important;
     }
-    /* hr 위아래 간격 줄이기 */
     hr {
         margin-top: 0.35rem !important;
         margin-bottom: 0.35rem !important;
@@ -395,7 +408,6 @@ with st.sidebar:
 
     st.markdown("### 📘 지침")
 
-    # ----- 텍스트 지침 설명 & 편집 -----
     with st.expander("1. 역할 지침 (Role Instructions)", expanded=False):
         st.caption("ChatGPT가 어떤 캐릭터 / 전문가 / 화자인지 정의합니다.")
         st.markdown(
@@ -638,15 +650,16 @@ with st.sidebar:
         )
         st.session_state.model_choice = model
 
-    with st.expander("🧹 설정 초기화 (config.json)", expanded=False):
-        st.caption("모든 지침, 최근 입력, config.json 파일을 초기화합니다. 되돌릴 수 없습니다.")
+    # ✅ visual_config.json 초기화
+    with st.expander("🧹 설정 초기화 (visual_config.json)", expanded=False):
+        st.caption("모든 지침, 최근 입력, visual_config.json 파일을 초기화합니다. 되돌릴 수 없습니다.")
         if not st.session_state.show_reset_confirm:
-            if st.button("config.json 초기화", use_container_width=True):
+            if st.button("visual_config.json 초기화", use_container_width=True):
                 st.session_state.show_reset_confirm = True
                 st.session_state.reset_input_value = ""
                 st.rerun()
         else:
-            st.warning("정말 config.json을 초기화하시겠습니까? 아래에 '초기화'를 입력한 뒤 실행을 눌러주세요.")
+            st.warning("정말 visual_config.json을 초기화하시겠습니까? 아래에 '초기화'를 입력한 뒤 실행을 눌러주세요.")
             txt = st.text_input(
                 "확인용 단어 입력",
                 key="reset_confirm_input",
@@ -666,8 +679,9 @@ with st.sidebar:
                     st.session_state.reset_input_value = ""
                     st.rerun()
 
-    with st.expander("💾 config.json 내보내기 / 불러오기", expanded=False):
-        st.caption("현재 설정을 파일로 저장하거나, 기존 config.json 파일을 불러올 수 있습니다.")
+    # ✅ visual_config.json 내보내기/불러오기
+    with st.expander("💾 visual_config.json 내보내기 / 불러오기", expanded=False):
+        st.caption("현재 설정을 파일로 저장하거나, 기존 visual_config.json 파일을 불러올 수 있습니다.")
 
         export_data = {
             "inst_role": st.session_state.inst_role,
@@ -683,12 +697,14 @@ with st.sidebar:
             "image_instruction_sets": st.session_state.get("image_instruction_sets", []),
             "active_image_instruction_set_id": st.session_state.get("active_image_instruction_set_id"),
             "common_image_instruction": st.session_state.get("common_image_instruction", ""),
+            # ✅ current_page_id 포함
+            "current_page_id": st.session_state.get("current_page_id"),
         }
         export_json_str = json.dumps(export_data, ensure_ascii=False, indent=2)
         st.download_button(
-            "⬇️ config.json 내보내기",
+            "⬇️ visual_config.json 내보내기",
             data=export_json_str.encode("utf-8"),
-            file_name="config.json",
+            file_name="visual_config.json",
             mime="application/json",
             use_container_width=True,
         )
@@ -696,15 +712,15 @@ with st.sidebar:
         st.markdown("---")
 
         uploaded_file = st.file_uploader(
-            "config.json 불러오기", type=["json"], help="이전 백업한 config.json 파일을 업로드하세요."
+            "visual_config.json 불러오기", type=["json"], help="이전 백업한 visual_config.json 파일을 업로드하세요."
         )
 
         if uploaded_file is not None:
             try:
                 raw = uploaded_file.read().decode("utf-8")
-                new_data = json.loads(raw)
+                _ = json.loads(raw)
             except Exception:
-                st.error("❌ JSON 파일을 읽는 중 오류가 발생했습니다. 올바른 config.json인지 확인해주세요.")
+                st.error("❌ JSON 파일을 읽는 중 오류가 발생했습니다. 올바른 visual_config.json인지 확인해주세요.")
             else:
                 with open(CONFIG_PATH, "w", encoding="utf-8") as f:
                     f.write(raw)
@@ -715,7 +731,6 @@ with st.sidebar:
                 ensure_active_set_applied()
                 ensure_active_image_set_applied()
 
-                # 텍스트 지침 set이 비어 있으면 기본 생성
                 if not st.session_state.instruction_sets:
                     default_set = {
                         "id": "default",
@@ -731,7 +746,6 @@ with st.sidebar:
                     st.session_state.instruction_sets = [default_set]
                     st.session_state.active_instruction_set_id = "default"
 
-                # 이미지 지침 set이 비어 있으면 기본 생성
                 if not st.session_state.image_instruction_sets:
                     img_default_set = {
                         "id": "img_default",
@@ -741,8 +755,12 @@ with st.sidebar:
                     st.session_state.image_instruction_sets = [img_default_set]
                     st.session_state.active_image_instruction_set_id = "img_default"
 
+                # ✅ 불러온 뒤에도 current_page_id가 비어있으면 보정
+                if st.session_state.get("current_page_id") is None and st.session_state.get("active_instruction_set_id"):
+                    st.session_state.current_page_id = st.session_state.active_instruction_set_id
+
                 save_config()
-                st.success("✅ config.json이 성공적으로 불러와졌습니다. 설정이 적용됩니다.")
+                st.success("✅ visual_config.json이 성공적으로 불러와졌습니다. 설정이 적용됩니다.")
                 st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -771,14 +789,13 @@ if active_set_main is None:
         "inst_user_intent": st.session_state.inst_user_intent,
     }
 
-# 앱 타이틀
 st.markdown(
     "<h2 style='margin-bottom:0.15rem; text-align:right; "
     "color:#374151; font-size:22px;'>visualking</h2>",
     unsafe_allow_html=True,
 )
 
-# ===== 메인 상단: 지침 set 선택(가운데 정렬) + 관리 버튼 + separator =====
+# ===== 메인 상단: 지침 set 선택 + 관리 =====
 if inst_sets_main:
     names_main = [s.get("name", f"셋 {i+1}") for i, s in enumerate(inst_sets_main)]
     active_index_main = 0
@@ -787,7 +804,6 @@ if inst_sets_main:
             active_index_main = i
             break
 
-    # 1) 지침 set 선택 라디오 (가운데, 가로)
     col_l1, col_c1, col_r1 = st.columns([1, 4, 1])
     with col_c1:
         st.markdown(
@@ -807,11 +823,14 @@ if inst_sets_main:
         selected_set_main = inst_sets_main[selected_index_main]
         if selected_set_main.get("id") != active_id_main:
             st.session_state.active_instruction_set_id = selected_set_main.get("id")
+
+            # ✅ current_page_id도 같이 갱신/저장
+            st.session_state.current_page_id = selected_set_main.get("id")
+
             apply_instruction_set(selected_set_main)
             save_config()
             st.rerun()
 
-    # 2) 지침 set 관리 라디오 (가운데, 가로)
     col_l2, col_c2, col_r2 = st.columns([1, 4, 1])
     with col_c2:
         st.markdown(
@@ -843,17 +862,15 @@ if inst_sets_main:
             st.session_state.instset_toolbar_run_id += 1
             st.rerun()
 
-# 지침 set 영역 아래 separator bar
 st.markdown("---")
 
-# 현재 선택된 지침 set 이름 (가운데 정렬) + 그 아래 separator
 st.markdown(
     f"<h3 style='text-align:center; margin:0.5rem 0 0.75rem 0;'>{active_name_main}</h3>",
     unsafe_allow_html=True,
 )
 st.markdown("---")
 
-# ===== 지침 set 삭제 모드 (메인 영역) =====
+# ===== 지침 set 삭제 모드 =====
 if st.session_state.get("instset_delete_mode", False):
     sets = st.session_state.instruction_sets
     st.markdown("#### 🗑 지침 set 삭제")
@@ -882,9 +899,12 @@ if st.session_state.get("instset_delete_mode", False):
                         st.session_state.active_instruction_set_id = (
                             st.session_state.instruction_sets[0].get("id")
                         )
+                        # ✅ current_page_id 보정/저장
+                        st.session_state.current_page_id = st.session_state.active_instruction_set_id
                         ensure_active_set_applied()
                     else:
                         st.session_state.active_instruction_set_id = None
+                        st.session_state.current_page_id = None
                 save_config()
                 st.session_state.instset_delete_mode = False
                 st.rerun()
@@ -969,6 +989,8 @@ if st.session_state.get("show_instruction_set_editor", False):
                             st.session_state.instruction_sets[i] = target_set
                             break
                     st.session_state.active_instruction_set_id = edit_id
+                    # ✅ current_page_id도 같이 갱신
+                    st.session_state.current_page_id = edit_id
                 else:
                     new_id = str(uuid4())
                     new_set = {
@@ -984,6 +1006,8 @@ if st.session_state.get("show_instruction_set_editor", False):
                     }
                     st.session_state.instruction_sets.append(new_set)
                     st.session_state.active_instruction_set_id = new_id
+                    # ✅ current_page_id도 같이 갱신
+                    st.session_state.current_page_id = new_id
 
                 ensure_active_set_applied()
                 st.session_state.show_instruction_set_editor = False
@@ -992,7 +1016,7 @@ if st.session_state.get("show_instruction_set_editor", False):
                 st.success("✅ 지침 set이 저장되었습니다.")
                 st.rerun()
 
-# ----- 공통 이미지 지침 set 편집 폼 (단일 texteditor) -----
+# ----- 공통 이미지 지침 set 편집 폼 -----
 if st.session_state.get("show_image_instruction_set_editor", False):
     edit_id = st.session_state.get("edit_image_instruction_set_id")
     edit_mode = bool(edit_id)
@@ -1071,7 +1095,7 @@ if st.session_state.get("show_image_instruction_set_editor", False):
                 st.success("✅ 공통 이미지 지침 set이 저장되었습니다.")
                 st.rerun()
 
-# ----- 최근 입력 (세로 여백 약간 축소) -----
+# ----- 최근 입력 -----
 if st.session_state.history:
     items = st.session_state.history[-5:]
     html_items = ""
@@ -1131,10 +1155,9 @@ with center_col:
     if st.button("지침 수행", use_container_width=True):
         run_generation()
 
-# 메인 입력 아래 여백 살짝만
 st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
 
-# ===== 결과 영역: 제목 가운데 정렬 + 넓은 texteditor =====
+# ===== 결과 영역 =====
 if st.session_state.last_output:
     st.markdown(
         "<h3 style='text-align:center; margin-bottom:0.6rem;'>📄 변환된 결과</h3>",
