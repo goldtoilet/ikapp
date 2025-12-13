@@ -1,17 +1,12 @@
 import os
 import base64
-
 import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
-st.set_page_config(
-    page_title="imageking",
-    page_icon="🎬",
-    layout="wide",
-)
+st.set_page_config(page_title="imageking", page_icon="🎬", layout="wide")
 
 st.markdown(
     """
@@ -44,34 +39,30 @@ st.markdown(
     .logo-badge span.emoji {
         font-size: 1rem;
     }
-    .small-text-cell {
-        font-size: 0.8rem;
-        line-height: 1.3;
-    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 def get_env(key: str, default: str = "") -> str:
-    value = os.getenv(key)
-    return value if value is not None else default
+    v = os.getenv(key)
+    return v if v is not None else default
+
+def safe_index(options, value, default=0):
+    try:
+        return options.index(value)
+    except ValueError:
+        return default
 
 GPT_API_KEY = get_env("GPT_API_KEY", "")
-
 if not GPT_API_KEY:
     st.error("❌ GPT_API_KEY 가 설정되어 있지 않습니다. .env 또는 환경변수를 확인해주세요.")
     st.stop()
 
 client = OpenAI(api_key=GPT_API_KEY)
 
-IMAGE_MODELS = {
-    "OpenAI gpt-image-1": "gpt-image-1",
-}
-
-VIDEO_MODELS = {
-    "OpenAI gpt-video-1": "gpt-video-1",
-}
+IMAGE_MODELS = {"OpenAI gpt-image-1": "gpt-image-1"}
+VIDEO_MODELS = {"OpenAI gpt-video-1": "gpt-video-1"}
 
 st.session_state.setdefault("prompt_text", "")
 st.session_state.setdefault("image_b64", None)
@@ -92,14 +83,12 @@ def b64_to_bytes(b64_str: str) -> bytes:
 def get_image_params():
     orientation = st.session_state.get("image_orientation", "정사각형 1:1 (1024x1024)")
     quality = st.session_state.get("image_quality", "low")
-
     if orientation.startswith("정사각형"):
         size = "1024x1024"
     elif orientation.startswith("가로형"):
         size = "1536x1024"
     else:
         size = "1024x1536"
-
     return size, quality
 
 def get_video_params():
@@ -116,37 +105,19 @@ def get_video_params():
 
     duration = max(1, min(duration, 20))
     fps = max(12, min(fps, 60))
-
-
     return size, duration, fps
 
-
-def safe_index(options, value, default=0):
-    try:
-        return options.index(value)
-    except ValueError:
-        return defaultdef generate_image(prompt: str):
+def generate_image(prompt: str):
     if not prompt:
         return None
-
-
-    
-
     size, quality = get_image_params()
-    image_model_label = st.session_state.get("image_model_label", "OpenAI gpt-image-1")
-    model = IMAGE_MODELS.get(image_model_label, "gpt-image-1")
-
-    resp = client.images.generate(
-        model=model,
-        prompt=prompt,
-        size=size,
-        quality=quality,
-        n=1,
-    )
+    label = st.session_state.get("image_model_label", list(IMAGE_MODELS.keys())[0])
+    model = IMAGE_MODELS.get(label, "gpt-image-1")
+    resp = client.images.generate(model=model, prompt=prompt, size=size, quality=quality, n=1)
     return resp.data[0].b64_json
 
-def _extract_video_b64_from_response(resp):
-    for attr in ["data", "output", "result", "results"]:
+def extract_video_b64(resp):
+    for attr in ("data", "output", "result", "results"):
         if hasattr(resp, attr):
             obj = getattr(resp, attr)
             if isinstance(obj, list) and obj:
@@ -159,8 +130,7 @@ def _extract_video_b64_from_response(resp):
     if hasattr(resp, "output") and isinstance(resp.output, list):
         for item in resp.output:
             if isinstance(item, dict):
-                content = item.get("content", [])
-                for c in content:
+                for c in item.get("content", []) or []:
                     if isinstance(c, dict) and c.get("type") in ("output_video", "video") and "b64_json" in c:
                         return c["b64_json"]
             else:
@@ -174,20 +144,14 @@ def generate_video_from_prompt(prompt: str):
     if not prompt:
         return None, "EMPTY_PROMPT"
 
-    video_model_label = st.session_state.get("video_model_label", "OpenAI gpt-video-1")
-    model = VIDEO_MODELS.get(video_model_label, "gpt-video-1")
+    label = st.session_state.get("video_model_label", list(VIDEO_MODELS.keys())[0])
+    model = VIDEO_MODELS.get(label, "gpt-video-1")
     size, duration, fps = get_video_params()
 
     try:
         if hasattr(client, "videos") and hasattr(client.videos, "generate"):
-            resp = client.videos.generate(
-                model=model,
-                prompt=prompt,
-                size=size,
-                duration=duration,
-                fps=fps,
-            )
-            video_b64 = _extract_video_b64_from_response(resp)
+            resp = client.videos.generate(model=model, prompt=prompt, size=size, duration=duration, fps=fps)
+            video_b64 = extract_video_b64(resp)
             if not video_b64:
                 return None, "VIDEO_B64_NOT_FOUND"
             return base64.b64decode(video_b64), None
@@ -197,13 +161,9 @@ def generate_video_from_prompt(prompt: str):
                 model=model,
                 input=prompt,
                 modalities=["video"],
-                video={
-                    "size": size,
-                    "duration": duration,
-                    "fps": fps,
-                },
+                video={"size": size, "duration": duration, "fps": fps},
             )
-            video_b64 = _extract_video_b64_from_response(resp)
+            video_b64 = extract_video_b64(resp)
             if not video_b64:
                 return None, "VIDEO_B64_NOT_FOUND"
             return base64.b64decode(video_b64), None
@@ -215,27 +175,28 @@ def generate_video_from_prompt(prompt: str):
 with st.sidebar:
     st.markdown("#### 🖼 이미지 생성 모델")
     image_labels = list(IMAGE_MODELS.keys())
-current_image_label = st.session_state.get("image_model_label", image_labels[0])
-
-st.session_state["image_model_label"] = st.selectbox(
-    "이미지 생성 모델",
-    image_labels,
-    index=safe_index(image_labels, current_image_label, 0),
-)
+    current_image_label = st.session_state.get("image_model_label", image_labels[0])
+    st.session_state["image_model_label"] = st.selectbox(
+        "이미지 생성 모델",
+        image_labels,
+        index=safe_index(image_labels, current_image_label, 0),
+    )
 
     with st.expander("🖼 이미지 옵션", expanded=True):
+        ratios = ["정사각형 1:1 (1024x1024)", "가로형 3:2 (1536x1024)", "세로형 2:3 (1024x1536)"]
+        current_ratio = st.session_state.get("image_orientation", ratios[0])
         st.session_state["image_orientation"] = st.radio(
             "비율 선택",
-            ["정사각형 1:1 (1024x1024)", "가로형 3:2 (1536x1024)", "세로형 2:3 (1024x1536)"],
-            index=["정사각형 1:1 (1024x1024)", "가로형 3:2 (1536x1024)", "세로형 2:3 (1024x1536)"].index(
-                st.session_state.get("image_orientation", "정사각형 1:1 (1024x1024)")
-            ),
+            ratios,
+            index=safe_index(ratios, current_ratio, 0),
         )
 
+        qualities = ["low", "high"]
+        current_q = st.session_state.get("image_quality", "low")
         st.session_state["image_quality"] = st.radio(
             "품질",
-            ["low", "high"],
-            index=["low", "high"].index(st.session_state.get("image_quality", "low")),
+            qualities,
+            index=safe_index(qualities, current_q, 0),
             horizontal=True,
         )
 
@@ -243,20 +204,19 @@ st.session_state["image_model_label"] = st.selectbox(
 
     with st.expander("🎬 동영상 생성 (모델/옵션)", expanded=True):
         video_labels = list(VIDEO_MODELS.keys())
-current_video_label = st.session_state.get("video_model_label", video_labels[0])
+        current_video_label = st.session_state.get("video_model_label", video_labels[0])
+        st.session_state["video_model_label"] = st.selectbox(
+            "동영상 생성 모델",
+            video_labels,
+            index=safe_index(video_labels, current_video_label, 0),
+        )
 
-st.session_state["video_model_label"] = st.selectbox(
-    "동영상 생성 모델",
-    video_labels,
-    index=safe_index(video_labels, current_video_label, 0),
-)
-
+        v_sizes = ["9:16 (1080x1920)", "16:9 (1920x1080)", "1:1 (1024x1024)"]
+        current_vs = st.session_state.get("video_size", v_sizes[0])
         st.session_state["video_size"] = st.radio(
             "영상 비율/해상도",
-            ["9:16 (1080x1920)", "16:9 (1920x1080)", "1:1 (1024x1024)"],
-            index=["9:16 (1080x1920)", "16:9 (1920x1080)", "1:1 (1024x1024)"].index(
-                st.session_state.get("video_size", "9:16 (1080x1920)")
-            ),
+            v_sizes,
+            index=safe_index(v_sizes, current_vs, 0),
         )
 
         st.session_state["video_duration"] = st.slider(
@@ -336,7 +296,6 @@ with st.expander("🧪 이미지 / 영상 생성", expanded=False):
         else:
             with st.spinner("영상을 생성하는 중입니다..."):
                 video_bytes, err = generate_video_from_prompt(prompt_text.strip())
-
             if video_bytes:
                 st.session_state["video_bytes"] = video_bytes
                 st.session_state["video_error_msg"] = None
@@ -348,7 +307,6 @@ with st.expander("🧪 이미지 / 영상 생성", expanded=False):
     if st.session_state.get("image_b64"):
         st.markdown("---")
         st.markdown("#### 🖼 생성된 이미지")
-
         img_bytes = b64_to_bytes(st.session_state["image_b64"])
         st.image(img_bytes, use_container_width=True)
 
@@ -371,7 +329,6 @@ with st.expander("🧪 이미지 / 영상 생성", expanded=False):
         st.markdown("---")
         st.markdown("#### 🎬 생성된 영상 미리보기")
         st.video(st.session_state["video_bytes"])
-
         st.download_button(
             label="📥 영상 다운로드 (MP4)",
             data=st.session_state["video_bytes"],
