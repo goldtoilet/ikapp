@@ -351,146 +351,124 @@ st.markdown(
 )
 
 # ============================
-# 왼쪽 사이드바
+# 왼쪽 사이드바 (자동저장 + set별 key 분리)
 # ============================
+def sidebar_key(name: str) -> str:
+    active_id = st.session_state.get("active_instruction_set_id") or "no_active_set"
+    return f"{name}__{active_id}"
+
+def autosave_field(field_name: str, widget_key: str):
+    """
+    위젯의 값을 session_state.inst_* 에 반영하고,
+    active set에도 동기화(sync_active_set_field) + config 저장.
+    """
+    val = st.session_state.get(widget_key, "")
+    if not isinstance(val, str):
+        return
+    val = val.strip()
+
+    setattr(st.session_state, field_name, val)
+    sync_active_set_field(field_name, val)   # active set에 반영 + save_config 포함
+    save_config()                            # 한 번 더 안전하게 저장
+
 with st.sidebar:
     st.markdown("<div class='sidebar-top'>", unsafe_allow_html=True)
 
     st.markdown("### 📘 지침")
 
+    # 1) 역할 지침
     with st.expander("1. 역할 지침 (Role Instructions)", expanded=False):
         st.caption("ChatGPT가 어떤 캐릭터 / 전문가 / 화자인지 정의합니다.")
-        st.markdown(
-            "- 예: `당신은 다큐멘터리 전문 내레이터이다.`\n"
-            "- 예: `당신은 사건의 흐름을 촘촘히 짜주는 스토리텔링 편집자다.`\n"
-            "- 예: `당신은 유튜브 쇼츠용 대본을 압축해주는 전문가다.`"
-        )
-        inst_role_edit = st.text_area(
+        k = sidebar_key("inst_role_edit")
+        st.text_area(
             "역할 지침",
-            st.session_state.inst_role,
+            value=st.session_state.inst_role,
             height=125,
-            key="inst_role_edit",
+            key=k,
+            on_change=autosave_field,
+            args=("inst_role", k),
         )
-        if st.button("역할 지침 저장", key="save_role"):
-            if inst_role_edit.strip():
-                st.session_state.inst_role = inst_role_edit.strip()
-                sync_active_set_field("inst_role", st.session_state.inst_role)
-            st.success("역할 지침이 저장되었습니다.")
 
+    # 2) 톤 & 스타일
     with st.expander("2. 톤 & 스타일 지침", expanded=False):
         st.caption("어떤 분위기/문체/리듬으로 말할지 정의합니다.")
-        st.markdown(
-            "- 예: `톤은 진지하고 저널리즘 스타일을 유지한다.`\n"
-            "- 예: `첫 문장은 100% 강렬한 훅으로 시작한다.`\n"
-            "- 예: `문장은 짧고 간결하며 리듬감 있게 구성한다.`"
-        )
-        inst_tone_edit = st.text_area(
+        k = sidebar_key("inst_tone_edit")
+        st.text_area(
             "톤 & 스타일 지침",
-            st.session_state.inst_tone,
+            value=st.session_state.inst_tone,
             height=125,
-            key="inst_tone_edit",
+            key=k,
+            on_change=autosave_field,
+            args=("inst_tone", k),
         )
-        if st.button("톤 & 스타일 지침 저장", key="save_tone"):
-            if inst_tone_edit.strip():
-                st.session_state.inst_tone = inst_tone_edit.strip()
-                sync_active_set_field("inst_tone", st.session_state.inst_tone)
-            st.success("톤 & 스타일 지침이 저장되었습니다.")
 
+    # 3) 콘텐츠 구성
     with st.expander("3. 콘텐츠 구성 지침", expanded=False):
         st.caption("초반–중반–후반 또는 장면 흐름을 어떻게 짤지 정의합니다.")
-        st.markdown(
-            "- 예: `인트로 → 배경 → 사건 → 인물 → 결론 단계로 전개하라.`\n"
-            "- 예: `각 문단은 3~4문장으로 제한한다.`\n"
-            "- 예: `스토리 전개는 시간순으로 배열한다.`"
-        )
-        inst_structure_edit = st.text_area(
+        k = sidebar_key("inst_structure_edit")
+        st.text_area(
             "콘텐츠 구성 지침",
-            st.session_state.inst_structure,
+            value=st.session_state.inst_structure,
             height=125,
-            key="inst_structure_edit",
+            key=k,
+            on_change=autosave_field,
+            args=("inst_structure", k),
         )
-        if st.button("콘텐츠 구성 지침 저장", key="save_structure"):
-            if inst_structure_edit.strip():
-                st.session_state.inst_structure = inst_structure_edit.strip()
-                sync_active_set_field("inst_structure", st.session_state.inst_structure)
-            st.success("콘텐츠 구성 지침이 저장되었습니다.")
 
+    # 4) 정보 밀도 & 조사 심도
     with st.expander("4. 정보 밀도 & 조사 심도 지침", expanded=False):
         st.caption("얼마나 깊게, 얼마나 촘촘하게 설명할지 정의합니다.")
-        st.markdown(
-            "- 예: `사실 기반의 정보 비율을 50% 이상 유지.`\n"
-            "- 예: `불필요한 수식어는 최소화.`\n"
-            "- 예: `사건의 핵심 원인·결과를 반드시 포함.`"
-        )
-        inst_depth_edit = st.text_area(
+        k = sidebar_key("inst_depth_edit")
+        st.text_area(
             "정보 밀도 & 조사 심도 지침",
-            st.session_state.inst_depth,
+            value=st.session_state.inst_depth,
             height=125,
-            key="inst_depth_edit",
+            key=k,
+            on_change=autosave_field,
+            args=("inst_depth", k),
         )
-        if st.button("정보 밀도 지침 저장", key="save_depth"):
-            if inst_depth_edit.strip():
-                st.session_state.inst_depth = inst_depth_edit.strip()
-                sync_active_set_field("inst_depth", st.session_state.inst_depth)
-            st.success("정보 밀도 지침이 저장되었습니다.")
 
+    # 5) 금지 지침
     with st.expander("5. 금지 지침 (Forbidden Rules)", expanded=False):
         st.caption("절대 쓰지 말아야 할 표현/스타일/토픽을 정의합니다.")
-        st.markdown(
-            "- 예: `예시나 비유를 남발하지 마라.`\n"
-            "- 예: `독자에게 질문 형태로 말 걸지 말라.`\n"
-            "- 예: `선정적 표현은 제외.`"
-        )
-        inst_forbidden_edit = st.text_area(
+        k = sidebar_key("inst_forbidden_edit")
+        st.text_area(
             "금지 지침",
-            st.session_state.inst_forbidden,
+            value=st.session_state.inst_forbidden,
             height=125,
-            key="inst_forbidden_edit",
+            key=k,
+            on_change=autosave_field,
+            args=("inst_forbidden", k),
         )
-        if st.button("금지 지침 저장", key="save_forbidden"):
-            if inst_forbidden_edit.strip():
-                st.session_state.inst_forbidden = inst_forbidden_edit.strip()
-                sync_active_set_field("inst_forbidden", st.session_state.inst_forbidden)
-            st.success("금지 지침이 저장되었습니다.")
 
+    # 6) 출력 형식
     with st.expander("6. 출력 형식 지침 (Output Format)", expanded=False):
-        st.caption("길이, 단락, 제목, 마크다운 형식 등을 정의합니다.")
-        st.markdown(
-            "- 예: `전체 500자 이상.`\n"
-            "- 예: `소제목 없이 자연스러운 내레이션만 생성.`\n"
-            "- 예: `문단 간 공백 1줄 유지.`"
-        )
-        inst_format_edit = st.text_area(
+        st.caption("길이, 단락, 제목, 형식 등을 정의합니다.")
+        k = sidebar_key("inst_format_edit")
+        st.text_area(
             "출력 형식 지침",
-            st.session_state.inst_format,
+            value=st.session_state.inst_format,
             height=125,
-            key="inst_format_edit",
+            key=k,
+            on_change=autosave_field,
+            args=("inst_format", k),
         )
-        if st.button("출력 형식 지침 저장", key="save_format"):
-            if inst_format_edit.strip():
-                st.session_state.inst_format = inst_format_edit.strip()
-                sync_active_set_field("inst_format", st.session_state.inst_format)
-            st.success("출력 형식 지침이 저장되었습니다.")
 
+    # 7) 사용자 요청 반영
     with st.expander("7. 사용자 요청 반영 지침", expanded=False):
         st.caption("사용자가 준 주제/키워드를 어떻게 스토리 안에 녹일지 정의합니다.")
-        st.markdown(
-            "- 예: `사용자가 입력한 키워드를 내러티브 중심축으로 사용한다.`\n"
-            "- 예: `주제의 배경 정보를 먼저 파악한 뒤 스토리화한다.`"
-        )
-        inst_user_intent_edit = st.text_area(
+        k = sidebar_key("inst_user_intent_edit")
+        st.text_area(
             "사용자 요청 반영 지침",
-            st.session_state.inst_user_intent,
+            value=st.session_state.inst_user_intent,
             height=125,
-            key="inst_user_intent_edit",
+            key=k,
+            on_change=autosave_field,
+            args=("inst_user_intent", k),
         )
-        if st.button("사용자 요청 지침 저장", key="save_user_intent"):
-            if inst_user_intent_edit.strip():
-                st.session_state.inst_user_intent = inst_user_intent_edit.strip()
-                sync_active_set_field("inst_user_intent", st.session_state.inst_user_intent)
-            st.success("사용자 요청 반영 지침이 저장되었습니다.")
 
     st.markdown("</div><div class='sidebar-bottom'>", unsafe_allow_html=True)
+
 
     st.markdown("### ⚙️ 설정")
 
