@@ -117,11 +117,20 @@ def get_video_params():
     duration = max(1, min(duration, 20))
     fps = max(12, min(fps, 60))
 
+
     return size, duration, fps
 
-def generate_image(prompt: str):
+
+def safe_index(options, value, default=0):
+    try:
+        return options.index(value)
+    except ValueError:
+        return defaultdef generate_image(prompt: str):
     if not prompt:
         return None
+
+
+    
 
     size, quality = get_image_params()
     image_model_label = st.session_state.get("image_model_label", "OpenAI gpt-image-1")
@@ -205,11 +214,14 @@ def generate_video_from_prompt(prompt: str):
 
 with st.sidebar:
     st.markdown("#### 🖼 이미지 생성 모델")
-    st.session_state["image_model_label"] = st.selectbox(
-        "이미지 생성 모델",
-        list(IMAGE_MODELS.keys()),
-        index=list(IMAGE_MODELS.keys()).index(st.session_state.get("image_model_label", "OpenAI gpt-image-1")),
-    )
+    image_labels = list(IMAGE_MODELS.keys())
+current_image_label = st.session_state.get("image_model_label", image_labels[0])
+
+st.session_state["image_model_label"] = st.selectbox(
+    "이미지 생성 모델",
+    image_labels,
+    index=safe_index(image_labels, current_image_label, 0),
+)
 
     with st.expander("🖼 이미지 옵션", expanded=True):
         st.session_state["image_orientation"] = st.radio(
@@ -230,11 +242,14 @@ with st.sidebar:
     st.markdown("")
 
     with st.expander("🎬 동영상 생성 (모델/옵션)", expanded=True):
-        st.session_state["video_model_label"] = st.selectbox(
-            "동영상 생성 모델",
-            list(VIDEO_MODELS.keys()),
-            index=list(VIDEO_MODELS.keys()).index(st.session_state.get("video_model_label", "OpenAI gpt-video-1")),
-        )
+        video_labels = list(VIDEO_MODELS.keys())
+current_video_label = st.session_state.get("video_model_label", video_labels[0])
+
+st.session_state["video_model_label"] = st.selectbox(
+    "동영상 생성 모델",
+    video_labels,
+    index=safe_index(video_labels, current_video_label, 0),
+)
 
         st.session_state["video_size"] = st.radio(
             "영상 비율/해상도",
