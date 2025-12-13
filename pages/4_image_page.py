@@ -1,5 +1,9 @@
 import os
+import json
 import base64
+import urllib.request
+import urllib.error
+
 import streamlit as st
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -24,20 +28,6 @@ st.markdown(
         font-size: 0.95rem;
         color: #555;
         margin-bottom: 1.5rem;
-    }
-    .logo-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        padding: 0.25rem 0.6rem;
-        border-radius: 999px;
-        background: #F3F4FF;
-        color: #444;
-        font-size: 0.8rem;
-        margin-bottom: 0.5rem;
-    }
-    .logo-badge span.emoji {
-        font-size: 1rem;
     }
     </style>
     """,
@@ -116,31 +106,7 @@ def generate_image(prompt: str):
     resp = client.images.generate(model=model, prompt=prompt, size=size, quality=quality, n=1)
     return resp.data[0].b64_json
 
-def extract_video_b64(resp):
-    for attr in ("data", "output", "result", "results"):
-        if hasattr(resp, attr):
-            obj = getattr(resp, attr)
-            if isinstance(obj, list) and obj:
-                first = obj[0]
-                if hasattr(first, "b64_json"):
-                    return first.b64_json
-                if isinstance(first, dict) and "b64_json" in first:
-                    return first["b64_json"]
-
-    if hasattr(resp, "output") and isinstance(resp.output, list):
-        for item in resp.output:
-            if isinstance(item, dict):
-                for c in item.get("content", []) or []:
-                    if isinstance(c, dict) and c.get("type") in ("output_video", "video") and "b64_json" in c:
-                        return c["b64_json"]
-            else:
-                if hasattr(item, "content"):
-                    for c in item.content:
-                        if hasattr(c, "type") and getattr(c, "type") in ("output_video", "video") and hasattr(c, "b64_json"):
-                            return c.b64_json
-    return None
-
-def generate_video_from_prompt(prompt: str):
+def generate_video_from_prompt_rest(prompt: str):
     if not prompt:
         return None, "EMPTY_PROMPT"
 
@@ -148,41 +114,57 @@ def generate_video_from_prompt(prompt: str):
     model = VIDEO_MODELS.get(label, "gpt-video-1")
     size, duration, fps = get_video_params()
 
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "size": size,
+        "duration": duration,
+        "fps": fps,
+        "response_format": "b64_json",
+    }
+
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/videos/generations",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {GPT_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
     try:
-        if hasattr(client, "videos") and hasattr(client.videos, "generate"):
-            resp = client.videos.generate(model=model, prompt=prompt, size=size, duration=duration, fps=fps)
-            video_b64 = extract_video_b64(resp)
-            if not video_b64:
-                return None, "VIDEO_B64_NOT_FOUND"
-            return base64.b64decode(video_b64), None
-
-        if hasattr(client, "responses") and hasattr(client.responses, "create"):
-            resp = client.responses.create(
-                model=model,
-                input=prompt,
-                modalities=["video"],
-                video={"size": size, "duration": duration, "fps": fps},
-            )
-            video_b64 = extract_video_b64(resp)
-            if not video_b64:
-                return None, "VIDEO_B64_NOT_FOUND"
-            return base64.b64decode(video_b64), None
-
-        return None, "VIDEO_API_NOT_SUPPORTED_BY_THIS_SDK"
+        with urllib.request.urlopen(req, timeout=300) as r:
+            raw = r.read().decode("utf-8")
+        data = json.loads(raw)
+        b64 = None
+        if isinstance(data, dict):
+            if "data" in data and isinstance(data["data"], list) and data["data"]:
+                b64 = data["data"][0].get("b64_json")
+            if not b64 and "b64_json" in data:
+                b64 = data["b64_json"]
+        if not b64:
+            return None, f"VIDEO_B64_NOT_FOUND: {str(data)[:300]}"
+        return base64.b64decode(b64), None
+    except urllib.error.HTTPError as e:
+        try:
+            detail = e.read().decode("utf-8", errors="ignore")
+        except Exception:
+            detail = str(e)
+        return None, f"HTTPError {e.code}: {detail[:500]}"
     except Exception as e:
         return None, str(e)
 
 with st.sidebar:
-    st.markdown("#### 🖼 이미지 생성 모델")
-    image_labels = list(IMAGE_MODELS.keys())
-    current_image_label = st.session_state.get("image_model_label", image_labels[0])
-    st.session_state["image_model_label"] = st.selectbox(
-        "이미지 생성 모델",
-        image_labels,
-        index=safe_index(image_labels, current_image_label, 0),
-    )
-
     with st.expander("🖼 이미지 옵션", expanded=True):
+        image_labels = list(IMAGE_MODELS.keys())
+        current_image_label = st.session_state.get("image_model_label", image_labels[0])
+        st.session_state["image_model_label"] = st.selectbox(
+            "이미지 생성 모델",
+            image_labels,
+            index=safe_index(image_labels, current_image_label, 0),
+        )
+
         ratios = ["정사각형 1:1 (1024x1024)", "가로형 3:2 (1536x1024)", "세로형 2:3 (1024x1536)"]
         current_ratio = st.session_state.get("image_orientation", ratios[0])
         st.session_state["image_orientation"] = st.radio(
@@ -238,10 +220,6 @@ with st.sidebar:
 st.markdown(
     """
     <div>
-        <div class="logo-badge">
-            <span class="emoji">🎬</span>
-            <span>IASA</span>
-        </div>
         <div class="main-title">imageking</div>
         <div class="main-subtitle">
             하나의 프롬프트를 계속 변형해 보면서,<br>
@@ -295,7 +273,7 @@ with st.expander("🧪 이미지 / 영상 생성", expanded=False):
             st.warning("프롬프트를 먼저 입력해주세요.")
         else:
             with st.spinner("영상을 생성하는 중입니다..."):
-                video_bytes, err = generate_video_from_prompt(prompt_text.strip())
+                video_bytes, err = generate_video_from_prompt_rest(prompt_text.strip())
             if video_bytes:
                 st.session_state["video_bytes"] = video_bytes
                 st.session_state["video_error_msg"] = None
