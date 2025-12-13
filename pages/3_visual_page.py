@@ -28,7 +28,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.session_state.setdefault(K("history"), [])
 
 st.session_state.setdefault(K("inst_role"), "너는 감성적이고 스토리텔링이 뛰어난 다큐멘터리 내레이터다.")
 st.session_state.setdefault(K("inst_tone"), "톤은 진지하고 서정적이며, 첫 문장은 강렬한 훅으로 시작한다.")
@@ -204,13 +203,6 @@ def run_generation():
     text = st.session_state[K("current_input")].strip()
     if not text:
         return
-
-    hist = st.session_state[K("history")]
-    if text in hist:
-        hist.remove(text)
-    hist.append(text)
-    st.session_state[K("history")] = hist[-5:]
-    save_config()
 
     system_parts = [
         st.session_state[K("inst_role")],
@@ -972,30 +964,6 @@ if st.session_state.get(K("show_image_instruction_set_editor"), False):
                 save_config()
                 st.success("✅ 공통 이미지 지침 set이 저장되었습니다.")
                 st.rerun()
-
-if st.session_state[K("history")]:
-    items = st.session_state[K("history")][-5:]
-    html_items = ""
-    for h in items:
-        html_items += f"""
-<div style="font-size:0.85rem; color:#797979; margin-bottom:4px;">{h}</div>
-"""
-    st.markdown(
-        f"""<div style="max-width:460px; margin:28px auto 28px auto;">
-  <div style="margin-left:100px; text-align:left;">
-    <div style="font-size:0.8rem; color:#9ca3af; margin-bottom:8px;">최근</div>
-    {html_items}
-  </div>
-</div>""",
-        unsafe_allow_html=True,
-    )
-else:
-    st.markdown(
-        """<div style="max-width:460px; margin:28px auto 28px auto;">
-  <div style="margin-left:100px; font-size:0.8rem; color:#d1d5db; text-align:left;">최근 입력이 없습니다.</div>
-</div>""",
-        unsafe_allow_html=True,
-    )
 
 pad_left, center_col, pad_right = st.columns([1, 7, 1])
 
