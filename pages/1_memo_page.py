@@ -2,7 +2,6 @@ import streamlit as st
 import sqlite3
 from streamlit_option_menu import option_menu
 
-# ✅ 추가 import (config 저장/불러오기용)
 import os
 import json
 
@@ -48,7 +47,7 @@ def reset_config_file():
 # DB
 # =========================
 def init_db():
-    conn = sqlite3.connect("memo.db")
+    conn = sqlite3.connect("memo.db", check_same_thread=False)
     cur = conn.cursor()
 
     cur.execute(
@@ -136,6 +135,26 @@ def delete_card_by_title(page_id: int, title: str):
         db.commit()
         return True
     return False
+
+# =========================
+# ✅ 카드 자동저장 콜백
+# =========================
+def autosave_card(card_id: int):
+    tkey = f"title_{card_id}"
+    ckey = f"content_{card_id}"
+
+    title = st.session_state.get(tkey, "")
+    content = st.session_state.get(ckey, "")
+
+    if not isinstance(title, str):
+        title = ""
+    if not isinstance(content, str):
+        content = ""
+
+    # 제목이 완전히 비면 기본값 유지(원하면 빈값 허용으로 바꿔도 됨)
+    title_clean = title.strip() if title.strip() else "제목 없음"
+
+    update_card(card_id, title_clean, content)
 
 # =========================
 # CSS
@@ -304,11 +323,7 @@ with st.sidebar:
     save_config(_cfg)
 
     st.markdown("---")
-
-    st.markdown(
-        "<div style='margin-top:0.4rem;'></div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown("<div style='margin-top:0.4rem;'></div>", unsafe_allow_html=True)
 
     st.radio(
         "",
@@ -318,10 +333,7 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
-    st.markdown(
-        "<div style='margin-bottom:0.4rem;'></div>",
-        unsafe_allow_html=True,
-    )
+    st.markdown("<div style='margin-bottom:0.4rem;'></div>", unsafe_allow_html=True)
 
     page_action = st.session_state.get("page_toolbar", "-")
 
@@ -379,7 +391,7 @@ with st.sidebar:
                 st.rerun()
 
     # =========================
-    # ✅ 여기부터: memo_config.json 전용 설정 버튼들
+    # ✅ memo_config.json 전용 설정 버튼들
     # =========================
     st.markdown("---")
     with st.expander("⚙️ 설정 (memo_config.json)", expanded=False):
@@ -387,7 +399,6 @@ with st.sidebar:
         with c1:
             if st.button("초기화", use_container_width=True):
                 reset_config_file()
-                # session_state의 config 관련 값도 정리(필요한 것만)
                 if "current_page_id" in st.session_state:
                     del st.session_state["current_page_id"]
                 st.success("memo_config.json 초기화 완료")
@@ -447,6 +458,8 @@ for card_id, title, content in cards:
             key=f"title_{card_id}",
             label_visibility="collapsed",
             placeholder="제목 입력",
+            on_change=autosave_card,
+            args=(card_id,),
         )
         st.text_area(
             "",
@@ -455,6 +468,8 @@ for card_id, title, content in cards:
             key=f"content_{card_id}",
             label_visibility="collapsed",
             placeholder="내용을 입력하세요",
+            on_change=autosave_card,
+            args=(card_id,),
         )
 
 st.markdown("---")
@@ -464,7 +479,7 @@ toolbar_key = f"card_toolbar_{st.session_state['card_toolbar_run_id']}"
 st.markdown('<div class="mk-toolbar-wrapper">', unsafe_allow_html=True)
 card_action = st.radio(
     "",
-    ["-", "💾 저장", "＋ 카드 추가", "🗑 카드 삭제"],
+    ["-", "＋ 카드 추가", "🗑 카드 삭제"],
     key=toolbar_key,
     horizontal=True,
     label_visibility="collapsed",
@@ -473,16 +488,7 @@ st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
 
-if card_action == "💾 저장":
-    for card_id, title, content in cards:
-        new_title = st.session_state.get(f"title_{card_id}", title)
-        new_content = st.session_state.get(f"content_{card_id}", content)
-        update_card(card_id, new_title, new_content)
-    st.success("모든 카드가 저장되었습니다.")
-    st.session_state["card_toolbar_run_id"] += 1
-    st.rerun()
-
-elif card_action == "＋ 카드 추가":
+if card_action == "＋ 카드 추가":
     add_card(current_page_id)
     st.session_state["card_toolbar_run_id"] += 1
     st.rerun()
